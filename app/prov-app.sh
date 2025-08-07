@@ -1,84 +1,56 @@
 #!/bin/bash
 
-# provision Sparta test app
+export DEBIAN_FRONTEND=noninteractive
 
-echo "Updating system packages..."
-sudo apt update
-sudo apt upgrade -y
-echo "System updated."
+echo "Updating system..."
+apt-get update -y && apt-get upgrade -y
+echo
 
-# install required packages
-echo "Installing nginx, git, curl..."
-sudo apt install nginx git curl -y
+echo "Installing Nginx, Git, Curl..."
+apt-get install nginx git curl -y
+echo
 
-# install Node.js 20 and npm
-echo "Installing Node.js 20..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
+echo "Configuring NGINX reverse proxy..."
+sed -i 's|try_files $uri $uri/ =404;|proxy_pass http://localhost:3000;|' /etc/nginx/sites-available/default
+systemctl restart nginx
+echo "NGINX configured and restarted."
+echo
 
-# verify Node version
-node -v
-npm -v
+echo "Installing Node.js v20..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get install -y nodejs
+echo "Node.js version: $(node -v)"
+echo
 
-# install pm2 globally
-echo "Installing pm2..."
-sudo npm install -g pm2
+echo "Installing PM2 globally..."
+npm install -g pm2
+echo
 
-echo "Cloning app repo..."
-cd ~
-if [ -d "tech508-george-sparta-app" ]; then
-  echo "Repo already cloned, pulling latest changes..."
-  cd tech508-george-sparta-app
-  git pull
-else
-  git clone https://github.com/Geodude132/tech508-george-sparta-app.git
-  cd tech508-george-sparta-app
-fi
+echo "Cloning your Sparta app repo..."
+git clone https://github.com/Geodude132/tech508-george-sparta-app.git repo
+cd repo/app
+echo "Repo cloned and moved into app directory."
+echo
 
-cd app
+export DB_HOST=mongodb://172.31.19.194:27017/posts
+echo "Environment variable DB_HOST set."
+echo
 
-echo "Installing dependencies..."
+echo "Installing app dependencies..."
 npm install
+echo
 
-# stop existing pm2 process if running
-echo "Stopping any existing pm2 process..."
-pm2 delete sparta-app || true
+echo "Deleting any existing PM2 process named sparta-app (if any)..."
+pm2 delete all || true
+echo
 
-# start app using pm2 with environment variable
-echo "Starting app with pm2 and DB_HOST environment variable..."
-DB_HOST="mongodb://172.31.23.214:27017/posts" pm2 start app.js --name sparta-app
+echo "Starting app with PM2 using npm start..."
+pm2 start npm --name "app.js" -- start
+echo "App started and registered with PM2."
+echo
 
-# save pm2 process list to resurrect on reboot (optional)
-pm2 save
+echo "Public IP address of this instance:"
+curl -s http://checkip.amazonaws.com
+echo
 
-# --- NGINX REVERSE PROXY SETUP ---
-
-echo "Backing up Nginx default config..."
-sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.bak
-
-echo "Writing clean Nginx reverse proxy config..."
-sudo tee /etc/nginx/sites-available/default > /dev/null << EOF
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-
-    server_name _;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-    }
-}
-EOF
-
-echo "Testing Nginx configuration..."
-sudo nginx -t
-
-echo "Restarting Nginx..."
-sudo systemctl restart nginx
-
-echo "Provisioning complete. The Sparta app should now be accessible without specifying port 3000."
+echo "App provisioning complete. "
