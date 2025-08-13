@@ -51,4 +51,4 @@ sleep 10
 # Show bindIp setting for logs
 grep bindIp /etc/mongod.conf
 
-echo "✅ MongoDB setup complete."
+echo "MongoDB setup complete."

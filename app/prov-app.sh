@@ -2,19 +2,24 @@
 
 export DEBIAN_FRONTEND=noninteractive
 
-echo "Updating system..."
-apt-get update -y && apt-get upgrade -y
+echo "Updating package list..."
+apt-get update -y
+echo "Package list updated."
 echo
 
-echo "Installing Nginx, Git, Curl..."
-apt-get install nginx git curl -y
+echo "Upgrading packages..."
+apt-get upgrade -y
+echo "Upgrade complete."
 echo
 
-echo "Configuring NGINX reverse proxy..."
-sed -i 's|try_files $uri $uri/ =404;|proxy_pass http://localhost:3000;|' /etc/nginx/sites-available/default
+echo "Installing Nginx..."
+apt-get install nginx -y
+echo "Nginx installed."
+echo
+
+sudo sed -i 's|try_files \$uri \$uri/ =404;|proxy_pass http://localhost:3000;|' /etc/nginx/sites-available/default
+
 systemctl restart nginx
-echo "NGINX configured and restarted."
-echo
 
 echo "Installing Node.js v20..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -24,33 +29,35 @@ echo
 
 echo "Installing PM2 globally..."
 npm install -g pm2
+echo "PM2 installed."
 echo
 
-echo "Cloning your Sparta app repo..."
+echo "Cloning Sparta test app "
 git clone https://github.com/Geodude132/tech508-george-sparta-app.git repo
-cd repo/app
-echo "Repo cloned and moved into app directory."
+echo "Repo cloned."
 echo
 
-export DB_HOST=mongodb://172.31.19.194:27017/posts
+echo "Setting up environment..."
+cd repo/app
+export DB_HOST=mongodb://172.31.24.85:27017/posts
 echo "Environment variable DB_HOST set."
 echo
 
 echo "Installing app dependencies..."
-npm install
+npm install --no-fund --no-audit
+echo "Dependencies installed."
 echo
 
-echo "Deleting any existing PM2 process named sparta-app (if any)..."
-pm2 delete all || true
+echo "Stopping any previous app instances (if any)..."
+pm2 delete sparta-app || true
 echo
 
-echo "Starting app with PM2 using npm start..."
-pm2 start npm --name "app.js" -- start
-echo "App started and registered with PM2."
+echo "Starting app using PM2..."
+pm2 start app.js --name sparta-app
+pm2 save
+echo "App started with PM2."
 echo
 
-echo "Public IP address of this instance:"
+echo "Public IP address:"
 curl -s http://checkip.amazonaws.com
 echo
-
-echo "App provisioning complete. "
